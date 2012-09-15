@@ -3,16 +3,16 @@
 
 #include <stdio.h>
 
-typedef struct {
-    char **tokens;
-    int token_count;
+typedef struct input_line_struct {
+    char *token;
+    struct input_line_struct *next;
 } input_line;
 
 /* Reads a line of whitespace-separated tokens from an input stream */
-int input_read_line_from_stream(FILE *input_stream, input_line **line);
+input_line *input_read_line_from_stream(FILE *input_stream, int *error);
 
 /* Reads a line of whitespace-separated tokens from the standard input */
-int input_read_line(input_line **line);
+input_line *input_read_line(int *error);
 
 /* Frees an input_line */
 void input_line_free(input_line *line);
