@@ -16,12 +16,9 @@ static const char *error_msg[] = {
 	[ERROR_MEM] = "Out of memory",
 };
 
-/* Adds a token to a line. Automatically expands available space */
-static input_token *input_token_append_token(input_token *parent_token, const char *string, int *error);
-
 #pragma mark - Public functions
 
-input_token *input_read_line_from_stream(FILE *in, int *error) {
+input_token *input_read_line_from_stream(FILE *in, input_error *error) {
     char line_buffer[2048];
     if (fgets(line_buffer, sizeof(line_buffer), in) != line_buffer) {
 		*error = ERROR_READ;
@@ -52,7 +49,7 @@ input_token *input_read_line_from_stream(FILE *in, int *error) {
 	return first_token;
 }
 
-input_token *input_read_line(int *error) {
+input_token *input_read_line(input_error *error) {
     return input_read_line_from_stream(stdin, error);
 }
 
@@ -66,7 +63,7 @@ void input_token_free(input_token *token) {
 	free(token);
 }
 
-const char *input_get_error(int err) {
+const char *input_get_error(input_error err) {
 	if (err < 0 || err >= ERROR_COUNT) {
 		return NULL;
 	}
@@ -74,9 +71,7 @@ const char *input_get_error(int err) {
     return error_msg[err];
 }
 
-#pragma mark - Interval functions
-
-static input_token *input_token_append_token(input_token *parent_token, const char *string, int *error) {
+input_token *input_token_append_token(input_token *parent_token, const char *string, int *error) {
 	size_t nbytes = strlen(string) + 1;
 	
 	char *token_str = malloc(nbytes);

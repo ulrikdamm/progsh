@@ -1,0 +1,4 @@
+** TODO **
+
+shell.c
+- convert error handling to using longjmp

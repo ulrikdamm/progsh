@@ -3,18 +3,18 @@
 #include <stdio.h>
 
 int main(void) {
-    int error;
-    input_token *token = input_read_line(&error);
-    if (error != 0) {
-        fprintf(stderr, "input_read_line failed: %s\n", input_get_error(error));
+	input_error ierr;
+    input_token *token = input_read_line(&ierr);
+    if (ierr != 0) {
+        fprintf(stderr, "input_read_line failed: %s\n", input_get_error(ierr));
         return 1;
     }
     
-    input_token *t = token;
-    while (t != NULL) {
-        printf("token: %s\n", t->string);
-        t = t->next;
-    }
+	shell_error serr;
+	if ((serr = shell_run_with_input_tokens(NULL, token)) != 0) {
+		fprintf(stderr, "shell_run_command_from_input failed: %i %s\n", serr, shell_get_error(serr));
+		return 2;
+	}
     
     input_token_free(token);
     return 0;

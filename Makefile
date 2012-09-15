@@ -1,7 +1,7 @@
 SOURCES = main.o shell.o input.o builtin.o
 OBJECTS = $(SOURCES:.c=.o)
 CC = clang
-CFLAGS =
+CFLAGS = -Werror
 LDFLAGS = 
 EXE = shell
 
