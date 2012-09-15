@@ -4,18 +4,18 @@
 
 int main(void) {
     int error;
-    input_line *line = input_read_line(&error);
+    input_token *token = input_read_line(&error);
     if (error != 0) {
         fprintf(stderr, "input_read_line failed: %s\n", input_get_error(error));
         return 1;
     }
     
-    input_line *l = line;
-    while (l != NULL) {
-        printf("token: %s\n", l->token);
-        l = l->next;
+    input_token *t = token;
+    while (t != NULL) {
+        printf("token: %s\n", t->string);
+        t = t->next;
     }
     
-    input_line_free(line);
+    input_token_free(token);
     return 0;
 }

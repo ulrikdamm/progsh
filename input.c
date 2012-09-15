@@ -17,11 +17,11 @@ static const char *error_msg[] = {
 };
 
 /* Adds a token to a line. Automatically expands available space */
-static input_line *input_line_append_token(input_line *line, const char *token, int *error);
+static input_token *input_token_append_token(input_token *parent_token, const char *string, int *error);
 
 #pragma mark - Public functions
 
-input_line *input_read_line_from_stream(FILE *in, int *error) {
+input_token *input_read_line_from_stream(FILE *in, int *error) {
     char line_buffer[2048];
     if (fgets(line_buffer, sizeof(line_buffer), in) != line_buffer) {
 		*error = ERROR_READ;
@@ -29,41 +29,41 @@ input_line *input_read_line_from_stream(FILE *in, int *error) {
     }
 	line_buffer[strlen(line_buffer) - 1] = 0; // remove newline character
 	
-	input_line *first_line = NULL;
+	input_token *first_token = NULL;
 	
 	const char *separators = " \t";
-	char *token = strtok(line_buffer, separators);
+	char *token_string = strtok(line_buffer, separators);
 	
-	while (token != NULL) {
-		input_line *line = input_line_append_token(first_line, token, error);
+	while (token_string != NULL) {
+		input_token *token = input_token_append_token(first_token, token_string, error);
 		if (*error != ERROR_NO_ERROR) {
-			input_line_free(line);
+			input_token_free(token);
 			return NULL;
 		}
 		
-		if (!first_line) {
-			first_line = line;
+		if (!first_token) {
+			first_token = token;
 		}
 		
-		token = strtok(NULL, separators);
+		token_string = strtok(NULL, separators);
 	}
 	
 	*error = ERROR_NO_ERROR;
-	return first_line;
+	return first_token;
 }
 
-input_line *input_read_line(int *error) {
+input_token *input_read_line(int *error) {
     return input_read_line_from_stream(stdin, error);
 }
 
-void input_line_free(input_line *line) {
-	if (!line) {
+void input_token_free(input_token *token) {
+	if (!token) {
 		return;
 	}
 	
-	input_line_free(line->next);
-	free(line->token);
-	free(line);
+	input_token_free(token->next);
+	free(token->string);
+	free(token);
 }
 
 const char *input_get_error(int err) {
@@ -76,32 +76,32 @@ const char *input_get_error(int err) {
 
 #pragma mark - Interval functions
 
-static input_line *input_line_append_token(input_line *parent_line, const char *token, int *error) {
-	size_t nbytes = strlen(token) + 1;
+static input_token *input_token_append_token(input_token *parent_token, const char *string, int *error) {
+	size_t nbytes = strlen(string) + 1;
 	
-	char *line_str = malloc(nbytes);
-	input_line *line = malloc(sizeof(input_line));
+	char *token_str = malloc(nbytes);
+	input_token *token = malloc(sizeof(input_token));
 	
-	if (!line_str || !line) {
-		free(line_str);
-		free(line);
+	if (!token_str || !token) {
+		free(token_str);
+		free(token);
 		*error = ERROR_MEM;
 		return NULL;
 	}
 	
-	memcpy(line_str, token, nbytes);
+	memcpy(token_str, string, nbytes);
 	
-	line->token = line_str;
-	line->next = NULL;
+	token->string = token_str;
+	token->next = NULL;
 	
-	if (parent_line) {
-		while (parent_line->next != NULL) {
-			parent_line = parent_line->next;
+	if (parent_token) {
+		while (parent_token->next != NULL) {
+			parent_token = parent_token->next;
 		}
 	
-		parent_line->next = line;
+		parent_token->next = token;
 	}
 	
 	*error = ERROR_NO_ERROR;
-	return line;
+	return token;
 }
