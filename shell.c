@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <setjmp.h>
+#include <unistd.h>
 
 struct shell_command_struct;
 struct shell_command_arg_struct;
@@ -45,6 +46,9 @@ static void shell_command_arg_free(shell_command_arg *arg);
 /* Call when there's an error in the interpretation */
 static void shell_interpreter_error(const char *error);
 
+/* Run a command in a shell */
+static void run_command(shell *s, shell_command *cmd);
+
 #pragma mark - Public functions
 
 void shell_run_command(shell *s, const char *cmd, ...) {
@@ -72,18 +76,7 @@ void shell_run_command(shell *s, const char *cmd, ...) {
 void shell_run_with_input_tokens(shell *s, input_token *first_token) {
 	shell_command *cmd = shell_interpret_command(s, first_token);
 	
-	printf("command: '%s'\n", cmd->cmd);
-	
-	shell_command_arg *arg = cmd->args;
-	while (arg != NULL) {
-		printf("arg: '%s'\n", arg->arg);
-		arg = arg->next;
-	}
-	
-	printf(">%s '%s'\n", cmd->should_append? ">": "", cmd->out_stream);
-	printf("< '%s'\n", cmd->in_stream);
-	printf("2> '%s'\n", cmd->err_stream);
-	printf("| %s\n", cmd->is_piping_output? cmd->out_pipe->cmd: "(none)");
+	run_command(s, cmd);
 }
 
 void shell_run_from_file(shell *s, FILE *f) {
@@ -103,6 +96,46 @@ void shell_run_from_stdin(shell *s) {
 
 #pragma mark - Private functions
 
+static void run_command(shell *s, shell_command *cmd) {
+	int param_count = 1;
+	
+	shell_command_arg *arg = cmd->args;
+	while (arg != NULL) {
+		param_count++;
+		arg = arg->next;
+	}
+	
+	char *args[param_count];
+	args[param_count - 1] = NULL;
+	
+	arg = cmd->args;
+	int i = 0;
+	while (arg != NULL) {
+		args[i] = arg->arg;
+		i++;
+		arg = arg->next;
+	}
+	
+	pid_t child = fork();
+	
+	if (child == -1) {
+		printf("fork error\n");
+		return;
+	}
+	
+	if (!child) {
+		execvp(cmd->cmd, (char * const *)args);
+		
+		printf("error: exec\n");
+		exit(1);
+	}
+	
+	int status;
+	waitpid(child, &status, 0);
+	
+	printf("Program '%s' exited with code %i\n", cmd->cmd, status);
+}
+
 static shell_command *shell_interpret_command(shell *s, input_token *tokens) {
 	if (tokens == NULL) {
 		return NULL;
@@ -111,6 +144,7 @@ static shell_command *shell_interpret_command(shell *s, input_token *tokens) {
 	shell_command *command = salloc(sizeof(shell_command));
 	
 	copy_string(tokens->string, &command->cmd, strlen(tokens->string) + 1);
+	shell_command_append_argument(command, command->cmd);
 	
 	enum {
 		no_operation,
