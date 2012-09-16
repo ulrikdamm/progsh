@@ -1,19 +1,19 @@
 #include "shell.h"
+#include "util.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <setjmp.h>
 
 typedef enum {
 	ERROR_NO_ERROR,
-	ERROR_MEM,
 	ERROR_INPUT,
 	ERROR_COUNT,
 } errors;
 	
 static const char *error_msg[] = {
 	[ERROR_NO_ERROR] = "No error",
-	[ERROR_MEM] = "Out of memory",
 };
 
 struct shell_command_struct;
@@ -38,13 +38,13 @@ typedef struct shell_command_arg_struct {
 } shell_command_arg;
 
 /* Interprets a command from an input line */
-static shell_command *shell_interpret_command(shell *s, input_token *tokens, shell_error *error);
+static shell_command *shell_interpret_command(shell *s, input_token *tokens);
 
 /* Allocates space for the second and copies nbytes bytes from the first string */
-static shell_error copy_string(const char *from, char **to, int nbytes);
+static void copy_string(const char *from, char **to, int nbytes);
 
 /* Appends a string as an argument to a command */
-static shell_error shell_command_append_argument(shell_command *cmd, const char *string);
+static void shell_command_append_argument(shell_command *cmd, const char *string);
 
 /* Frees a shell_command */
 static void shell_command_free(shell_command *cmd);
@@ -52,24 +52,21 @@ static void shell_command_free(shell_command *cmd);
 /* Frees a shell_command_arg */
 static void shell_command_arg_free(shell_command_arg *arg);
 
+/* Call when there's an error in the interpretation */
+static void shell_interpreter_error(const char *error);
+
 #pragma mark - Public functions
 
-shell_error shell_run_command(shell *s, const char *cmd, ...) {
+void shell_run_command(shell *s, const char *cmd, ...) {
 	va_list args;
 	va_start(args, cmd);
 	
 	input_token *first_token = NULL;
 	
 	const char *str;
-	input_error error;
 	
 	while ((str = va_arg(args, const char *)) != NULL) {
-		input_token *token = input_token_append_token(first_token, str, &error);
-		
-		if (error) {
-			input_token_free(first_token);
-			return ERROR_INPUT;
-		}
+		input_token *token = input_token_append_token(first_token, str);
 		
 		if (first_token == NULL) {
 			first_token = token;
@@ -80,18 +77,10 @@ shell_error shell_run_command(shell *s, const char *cmd, ...) {
 	
 	shell_run_with_input_tokens(s, first_token);
 	input_token_free(first_token);
-	
-	return ERROR_NO_ERROR;
 }
 
-shell_error shell_run_with_input_tokens(shell *s, input_token *first_token) {
-	shell_error error = ERROR_NO_ERROR;
-	shell_command *cmd = shell_interpret_command(s, first_token, &error);
-	
-	if (error) {
-		printf("%i\n", __LINE__); fflush(stdin);
-		return error;
-	}
+void shell_run_with_input_tokens(shell *s, input_token *first_token) {
+	shell_command *cmd = shell_interpret_command(s, first_token);
 	
 	printf("command: '%s'\n", cmd->cmd);
 	
@@ -105,59 +94,33 @@ shell_error shell_run_with_input_tokens(shell *s, input_token *first_token) {
 	printf("< '%s'\n", cmd->in_stream);
 	printf("2> '%s'\n", cmd->err_stream);
 	printf("| %s\n", cmd->is_piping_output? cmd->out_pipe->cmd: "(none)");
-	
-	return ERROR_NO_ERROR;
 }
 
-shell_error shell_run_from_file(shell *s, FILE *f) {
-	input_error error = ERROR_NO_ERROR;
-	input_token *first_token = input_read_line(&error);
+void shell_run_from_file(shell *s, FILE *f) {
+	input_token *first_token = input_read_line();
 	
-	if (error) {
-		return ERROR_INPUT;
+	if (!first_token) {
+		return;
 	}
 	
 	shell_run_with_input_tokens(s, first_token);
 	input_token_free(first_token);
-	
-	return ERROR_NO_ERROR;
 }
 
-shell_error shell_run_from_stdin(shell *s) {
+void shell_run_from_stdin(shell *s) {
 	return shell_run_from_file(s, stdin);
-}
-
-const char *shell_get_error(shell_error err) {
-	if (err < 0 || err >= ERROR_COUNT) {
-		return NULL;
-	}
-	
-	return error_msg[err];
 }
 
 #pragma mark - Private functions
 
-static shell_command *shell_interpret_command(shell *s, input_token *tokens, shell_error *error) {
+static shell_command *shell_interpret_command(shell *s, input_token *tokens) {
 	if (tokens == NULL) {
-		printf("%i\n", __LINE__); fflush(stdin);
 		return NULL;
 	}
 	
-	shell_command *command = calloc(1, sizeof(shell_command));
+	shell_command *command = salloc(sizeof(shell_command));
 	
-	if (command == NULL) {
-		printf("%i\n", __LINE__); fflush(stdin);
-		*error = ERROR_MEM;
-		return NULL;
-	}
-	
-	shell_error strcpy_error = ERROR_NO_ERROR;
-	if ((strcpy_error = copy_string(tokens->string, &command->cmd, strlen(tokens->string) + 1)) != ERROR_NO_ERROR) {
-		*error = strcpy_error;
-		shell_command_free(command);
-		printf("%i\n", __LINE__); fflush(stdin);
-		return NULL;
-	}
+	copy_string(tokens->string, &command->cmd, strlen(tokens->string) + 1);
 	
 	enum {
 		no_operation,
@@ -200,45 +163,24 @@ static shell_command *shell_interpret_command(shell *s, input_token *tokens, she
 				}
 				
 				case '|': {
-					shell_error interpret_error = ERROR_NO_ERROR;
-					command->out_pipe = shell_interpret_command(s, arg->next, &interpret_error);
+					command->out_pipe = shell_interpret_command(s, arg->next);
 					command->is_piping_output = 1;
-					
-					if (interpret_error != ERROR_NO_ERROR) {
-						*error = interpret_error;
-						shell_command_free(command);
-						printf("%i\n", __LINE__); fflush(stdin);
-						return NULL;
-					}
 					
 					goto stop;
 				}
 					
 				default: {
-					shell_error append_error = ERROR_NO_ERROR;
-					if ((append_error = shell_command_append_argument(command, string)) != ERROR_NO_ERROR) {
-						shell_command_free(command);
-						*error = append_error;
-						printf("%i\n", __LINE__); fflush(stdin);
-						return NULL;
-					}
+					shell_command_append_argument(command, string);
 				}
 			}
 		}
 		
 		switch (operation_for_next) {
 			case set_as_append_out_stream: command->should_append = 1;
-			case set_as_out_stream: strcpy_error = copy_string(string, &command->out_stream, length + 1); break;
-			case set_as_in_stream: strcpy_error = copy_string(string, &command->in_stream, length + 1); break;
-			case set_as_err_stream: strcpy_error = copy_string(string, &command->err_stream, length + 1); break;
+			case set_as_out_stream: copy_string(string, &command->out_stream, length + 1); break;
+			case set_as_in_stream: copy_string(string, &command->in_stream, length + 1); break;
+			case set_as_err_stream: copy_string(string, &command->err_stream, length + 1); break;
 			default: break;
-		}
-		
-		if (strcpy_error != ERROR_NO_ERROR) {
-			shell_command_free(command);
-			*error = strcpy_error;
-			printf("%i\n", __LINE__); fflush(stdin);
-			return NULL;
 		}
 			
 		operation_for_next = no_operation;
@@ -254,20 +196,12 @@ static shell_command *shell_interpret_command(shell *s, input_token *tokens, she
 	return command;
 }
 
-static shell_error shell_command_append_argument(shell_command *cmd, const char *string) {
+static void shell_command_append_argument(shell_command *cmd, const char *string) {
 	shell_command_arg *parent_arg = cmd->args;
 	
-	shell_command_arg *arg = malloc(sizeof(shell_command_arg));
-	
-	if (arg == NULL) {
-		return ERROR_MEM;
-	}
-	
+	shell_command_arg *arg = salloc(sizeof(shell_command_arg));
 	arg->next = NULL;
-	shell_error error = ERROR_NO_ERROR;
-	if ((error = copy_string(string, &arg->arg, strlen(string) + 1)) != ERROR_NO_ERROR) {
-		return error;
-	}
+	copy_string(string, &arg->arg, strlen(string) + 1);
 	
 	if (!parent_arg) {
 		cmd->args = arg;
@@ -278,20 +212,11 @@ static shell_error shell_command_append_argument(shell_command *cmd, const char 
 		
 		parent_arg->next = arg;
 	}
-	
-	return ERROR_NO_ERROR;
 }
 
-static shell_error copy_string(const char *from, char **to, int nbytes) {
-	*to = malloc(nbytes);
-	
-	if (*to == NULL) {
-		return ERROR_MEM;
-	}
-	
+static void copy_string(const char *from, char **to, int nbytes) {
+	*to = salloc(nbytes);
 	memcpy(*to, from, nbytes);
-	
-	return ERROR_NO_ERROR;
 }
 
 static void shell_command_free(shell_command *cmd) {

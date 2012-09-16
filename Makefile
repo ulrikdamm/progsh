@@ -1,4 +1,4 @@
-SOURCES = main.o shell.o input.o builtin.o
+SOURCES = main.o shell.o input.o builtin.o util.o
 OBJECTS = $(SOURCES:.c=.o)
 CC = clang
 CFLAGS = -Werror

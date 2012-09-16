@@ -1,27 +1,14 @@
 #include "input.h"
+#include "util.h"
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 
-typedef enum {
-    ERROR_NO_ERROR,
-	ERROR_READ,
-	ERROR_MEM,
-	ERROR_COUNT,
-} errors;
-
-static const char *error_msg[] = {
-	[ERROR_NO_ERROR] = "No error",
-	[ERROR_READ] = "Error reading from input stream",
-	[ERROR_MEM] = "Out of memory",
-};
-
 #pragma mark - Public functions
 
-input_token *input_read_line_from_stream(FILE *in, input_error *error) {
+input_token *input_read_line_from_stream(FILE *in) {
     char line_buffer[2048];
     if (fgets(line_buffer, sizeof(line_buffer), in) != line_buffer) {
-		*error = ERROR_READ;
 		return NULL;
     }
 	line_buffer[strlen(line_buffer) - 1] = 0; // remove newline character
@@ -32,11 +19,7 @@ input_token *input_read_line_from_stream(FILE *in, input_error *error) {
 	char *token_string = strtok(line_buffer, separators);
 	
 	while (token_string != NULL) {
-		input_token *token = input_token_append_token(first_token, token_string, error);
-		if (*error != ERROR_NO_ERROR) {
-			input_token_free(token);
-			return NULL;
-		}
+		input_token *token = input_token_append_token(first_token, token_string);
 		
 		if (!first_token) {
 			first_token = token;
@@ -45,12 +28,11 @@ input_token *input_read_line_from_stream(FILE *in, input_error *error) {
 		token_string = strtok(NULL, separators);
 	}
 	
-	*error = ERROR_NO_ERROR;
 	return first_token;
 }
 
-input_token *input_read_line(input_error *error) {
-    return input_read_line_from_stream(stdin, error);
+input_token *input_read_line(void) {
+    return input_read_line_from_stream(stdin);
 }
 
 void input_token_free(input_token *token) {
@@ -63,26 +45,11 @@ void input_token_free(input_token *token) {
 	free(token);
 }
 
-const char *input_get_error(input_error err) {
-	if (err < 0 || err >= ERROR_COUNT) {
-		return NULL;
-	}
-	
-    return error_msg[err];
-}
-
-input_token *input_token_append_token(input_token *parent_token, const char *string, int *error) {
+input_token *input_token_append_token(input_token *parent_token, const char *string) {
 	size_t nbytes = strlen(string) + 1;
 	
-	char *token_str = malloc(nbytes);
-	input_token *token = malloc(sizeof(input_token));
-	
-	if (!token_str || !token) {
-		free(token_str);
-		free(token);
-		*error = ERROR_MEM;
-		return NULL;
-	}
+	char *token_str = salloc(nbytes);
+	input_token *token = salloc(sizeof(input_token));
 	
 	memcpy(token_str, string, nbytes);
 	
@@ -97,6 +64,5 @@ input_token *input_token_append_token(input_token *parent_token, const char *str
 		parent_token->next = token;
 	}
 	
-	*error = ERROR_NO_ERROR;
 	return token;
 }
