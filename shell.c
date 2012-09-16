@@ -6,16 +6,6 @@
 #include <stdlib.h>
 #include <setjmp.h>
 
-typedef enum {
-	ERROR_NO_ERROR,
-	ERROR_INPUT,
-	ERROR_COUNT,
-} errors;
-	
-static const char *error_msg[] = {
-	[ERROR_NO_ERROR] = "No error",
-};
-
 struct shell_command_struct;
 struct shell_command_arg_struct;
 
