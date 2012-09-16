@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <setjmp.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 struct shell_command_struct;
 struct shell_command_arg_struct;
@@ -124,6 +125,16 @@ static void run_command(shell *s, shell_command *cmd) {
 	}
 	
 	if (!child) {
+		if (cmd->out_stream != NULL) {
+			close(fileno(stdout));
+			dup(fileno(fopen(cmd->out_stream, (cmd->should_append? "a": "w"))));
+		}
+		
+		if (cmd->in_stream != NULL) {
+			close(fileno(stdin));
+			dup(fileno(fopen(cmd->out_stream, "r")));
+		}
+		
 		execvp(cmd->cmd, (char * const *)args);
 		
 		printf("error: exec\n");
