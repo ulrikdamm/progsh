@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 
-void *salloc(size_t size);
+void *salloc(size_t bytes);
+void *realloc(void *mem, size_t bytes);
 
 #endif

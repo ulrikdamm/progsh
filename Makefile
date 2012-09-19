@@ -1,13 +1,13 @@
-SOURCES = main.o shell.o input.o builtin.o util.o
-OBJECTS = $(SOURCES:.c=.o)
 CC = clang
-CFLAGS = -Werror
+CFLAGS = -Wall -Werror -Wextra
 LDFLAGS = 
+SOURCES = main.c util.c cmd.c input.c shell.c
+OBJECTS = $(SOURCES:.c=.o)
 EXE = shell
 
 all: $(SOURCES) $(EXE)
 
-$(EXE): $(SOURCES)
+$(EXE): $(OBJECTS)
 	$(CC) $(LDFLAGS) -o $@ $(OBJECTS)
 
 .c:
