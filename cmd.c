@@ -33,9 +33,9 @@ void cmd_free(cmd *c) {
 		arg_p = next;
 	}
 	
-	free(c->stdin);
-	free(c->stdout);
-	free(c->stderr);
+	free(c->in);
+	free(c->out);
+	free(c->err);
 	
 	cmd_free(c->pipe_to);
 }
