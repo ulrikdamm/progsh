@@ -17,7 +17,8 @@ void shell_free(shell *s) {
 }
 
 void shell_print_prompt(shell *s) {
-	printf("%s@computer %s>", getenv("USER"), s->path);
+	s = NULL;
+	printf("%s@computer %s>", getenv("USER"), getenv("PWD"));
 }
 
 void shell_run_command(shell *s, cmd *c) {
