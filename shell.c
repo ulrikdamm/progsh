@@ -27,15 +27,19 @@ void shell_run_command(shell *s, cmd *c) {
 	shell_run_command_with_pipe(s, c, 0);
 }
 
-void shell_run_command_with_pipe(shell *s, cmd *c, int read_pipe) {
+void shell_run_command_with_pipe(shell *s, cmd *c, int write_pipe) {
 	int fds[2];
 	int proc_pid;
 	
-	if (c->pipe_to != NULL) {
+	if (c->pipe_from != NULL) {
 		pipe(fds);
 	}
 	
 	if (!(proc_pid = fork())) {
+		if (c->pipe_from != NULL) {
+			close(fds[1]);
+		}
+		
 		cmd_arg *args_p = c->command;
 		int args_count = 0;
 		while (args_p != NULL) {
@@ -54,17 +58,17 @@ void shell_run_command_with_pipe(shell *s, cmd *c, int read_pipe) {
 		}
 		args[i] = NULL;
 		
-		if (read_pipe > 0) {
+		if (c->pipe_from) {
 			close(fileno(stdin));
-			dup(read_pipe);
+			dup(fds[0]);
 		} else if (c->in) {
 			close(fileno(stdin));
 			dup(fileno(fopen(c->in, "r")));
 		}
 		
-		if (c->pipe_to) {
+		if (write_pipe > 0) {
 			close(fileno(stdout));
-			dup(fds[1]);
+			dup(write_pipe);
 		} else if (c->out) {
 			close(fileno(stdout));
 			dup(fileno(fopen(c->out, (c->out_append? "a": "w"))));
@@ -81,15 +85,15 @@ void shell_run_command_with_pipe(shell *s, cmd *c, int read_pipe) {
 		free(args);
 	}
 	
-	if (c->pipe_to != NULL) {
-		shell_run_command_with_pipe(s, c->pipe_to, fds[0]);
-		
+	if (write_pipe > 0) {
+		close(write_pipe);
+	}
+	
+	if (c->pipe_from != NULL) {
 		close(fds[0]);
-		close(fds[1]);
+		shell_run_command_with_pipe(s, c->pipe_from, fds[1]);
 	}
 	
 	int exit_code;
 	waitpid(proc_pid, &exit_code, 0);
-	
-	printf("Process %s ended with exit code %i\n", c->command->string, exit_code);
 }

@@ -16,6 +16,9 @@ int main(void) {
         }
 		
         cmd *c = parse_input(buffer);
+		while (c->pipe_to != NULL) {
+			c = c->pipe_to;
+		}
 		shell_run_command(s, c);
 		cmd_free(c);
     }
