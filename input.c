@@ -64,28 +64,18 @@ cmd *parse_input(const char *input) {
 		ignore_whitespace(p);
 		
 		string_ref word = get_string(p);
-		char *string = salloc(word.length + 1);
+		char string[word.length + 1];
+		string[word.length] = 0;
 		memcpy(string, p->source + word.start, word.length);
 		
 		switch (action) {
 			case parse_keyword: cmd_append_argument(cur_cmd, string); break;
-			case parse_stdin: free(cur_cmd->in); cur_cmd->in = string; break;
-			case parse_stdout_append: cur_cmd->out_append = 1;
-			case parse_stdout: free(cur_cmd->out); cur_cmd->out = string; break;
-			case parse_stderr: free(cur_cmd->err); cur_cmd->err = string; break;
+			case parse_stdin:	cmd_set_in(cur_cmd, string); break;
+			case parse_stdout_append: cur_cmd->out_append = 1; /* no break */
+			case parse_stdout:	cmd_set_out(cur_cmd, string); break;
+			case parse_stderr:	cmd_set_err(cur_cmd, string); break;
 		}
 	}
-	
-	/*while (cur_cmd) {
-		printf("[");
-		cmd_arg *arg = cur_cmd->command;
-		while (arg) {
-			printf("'%s' ", arg->string);
-			arg = arg->next;
-		}
-		printf(">%s'%s' <'%s' 2>'%s']\n", cur_cmd->out_append? ">": "", cur_cmd->out, cur_cmd->in, cur_cmd->err);
-		cur_cmd = cur_cmd->pipe_from;
-	}*/
 	
 	return initial_cmd;
 }

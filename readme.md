@@ -1,10 +1,10 @@
-# Progsh #
+# SSSh #
 
-A shell for programmers. More details to come.
+Simple Stupid Shell. Enjoy.
 
 ## Author ##
 
-Made by Ulrik Flænø Damm
+Made by Ulrik Flænø Damm.
 
 ## License ##
 

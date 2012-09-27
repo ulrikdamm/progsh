@@ -1,13 +1,26 @@
 #include "input.h"
 #include "shell.h"
 #include <stdio.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <setjmp.h>
 
 #define MAX_LINE_LENGTH 2048
 
+/* SIGINT signal handler */
+static void int_handler(int sig);
+
+shell *s;
+static jmp_buf buf;
+
 int main(void) {
-	shell *s = shell_alloc();
+	signal(SIGINT, int_handler);
+	
+	s = shell_alloc();
 	
     while (1) {
+		setjmp(buf);
+		
         shell_print_prompt(s);
 		char buffer[MAX_LINE_LENGTH];
         if (fgets(buffer, sizeof(buffer), stdin) < 0) {
@@ -26,4 +39,13 @@ int main(void) {
 	shell_free(s);
 	
     return 0;
+}
+
+void int_handler(int sig) {
+	sig = 0;
+	
+	if (!shell_handle_terminal_interrupt(s)) {
+		printf("\n");
+		longjmp(buf, 0);
+	}
 }
