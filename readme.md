@@ -1,6 +1,6 @@
-# SSSh #
+# Some shell #
 
-Simple Stupid Shell. Enjoy.
+Simple UNIX shell. Enjoy.
 
 ## Author ##
 
