@@ -3,9 +3,14 @@
 
 #include "cmd.h"
 
+typedef enum {
+	input_parse_error_none = 0,
+	input_parse_error_syntax,
+	input_parse_error_empty,
+} input_parse_error;
+
 /* Parses a command line input to a command.
- * The command should be free'd with cmd_free().
- * error: 0 = no error, 1 = invalid input, 2 = empty input */
-cmd *parse_input(const char *input, int *error);
+ * The command should be free'd with cmd_free() */
+cmd *parse_input(const char *input, input_parse_error *error);
 
 #endif

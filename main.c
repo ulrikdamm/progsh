@@ -17,8 +17,6 @@ shell *s;
 static jmp_buf buf;
 
 int main(void) {
-	printf("Launching shell...\n");
-	
 	signal(SIGINT, int_handler);
 	signal(SIGCHLD, child_handler);
 	
@@ -34,8 +32,8 @@ int main(void) {
             return 1;
         }
 		
-		int error;
-        cmd *c = parse_input(buffer, &error);
+		input_parse_error error;
+		cmd *c = parse_input(buffer, &error);
 		
 		if (error == 2) {
 			exit(0);

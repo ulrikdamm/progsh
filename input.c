@@ -21,21 +21,41 @@ struct string_ref_struct {
 	int length;
 };
 
+/* Checks if next character in input is whitespace */
 static int is_whitespace(char c);
-static void ignore_whitespace(parser *p);
-static char peek(parser *p);
-static char peekn(parser *p, int n);
-static char get_char(parser *p);
-static string_ref get_string(parser *p);
 
-cmd *parse_input(const char *input, int *error) {
+/* Skips characters until next non-whitespace */
+static void ignore_whitespace(parser *p);
+
+/* Peeks at the next character in input */
+static char peek(parser *p);
+
+/* Peeks n characters forward in input */
+static char peekn(parser *p, int n);
+
+/* Gets the next character in input and moves input pointer */
+static char get_char(parser *p);
+
+/* Read a string or keyword from input.
+ * If the next character is ", it will read until the next " character.
+ * Otherwise, it will read until next whitespace character */
+static string_ref get_string(parser *p);
+ 
+/* Reads any redirection (>, <, 2>, >>) and changes cur_cmd accordingly.
+ * Returns 1 if next token was a redirection, 0 otherwise */
+static int parse_redirection(cmd *cur_cmd, parser *p);
+
+/* Reads a keyword and changes cur_cmd accordingly */
+static void parse_keyword(cmd *cur_cmd, parser *p);
+
+cmd *parse_input(const char *input, input_parse_error *error) {
 	parser *p = &(parser){
 		.source = input,
 		.source_length = strlen(input),
 		.source_counter = 0,
 	};
 	
-	*error = 0;
+	*error = input_parse_error_none;
 		
 	cmd *initial_cmd = cmd_alloc();
 	cmd *cur_cmd = initial_cmd;
@@ -47,6 +67,7 @@ cmd *parse_input(const char *input, int *error) {
 		if (c == EOF) {
 			if (cur_cmd->command == NULL) {
 				cmd *from_pipe = cur_cmd->pipe_from;
+				
 				if (from_pipe != NULL) {
 					cur_cmd->pipe_from->pipe_to = NULL;
 				}
@@ -54,7 +75,7 @@ cmd *parse_input(const char *input, int *error) {
 				cmd_free(cur_cmd);
 				
 				if (!from_pipe) {
-					*error = 2;
+					*error = input_parse_error_empty;
 				}
 			}
 			
@@ -62,6 +83,12 @@ cmd *parse_input(const char *input, int *error) {
 		}
 		
 		if (c == '|') {
+			if (cur_cmd->command == NULL) {
+				fprintf(stderr, "Error: expected command name\n");
+				*error = input_parse_error_syntax;
+				cmd_free(initial_cmd);
+			}
+			
 			get_char(p);
 			cmd *new_cmd = cmd_alloc();
 			cur_cmd->pipe_to = new_cmd;
@@ -72,6 +99,12 @@ cmd *parse_input(const char *input, int *error) {
 		}
 		
 		if (c == '&') {
+			if (cur_cmd->command == NULL) {
+				fprintf(stderr, "Error: expected command name\n");
+				*error = input_parse_error_syntax;
+				cmd_free(initial_cmd);
+			}
+			
 			get_char(p);
 			cmd *new_cmd = cmd_alloc();
 			cur_cmd->pipe_to = new_cmd;
@@ -82,43 +115,60 @@ cmd *parse_input(const char *input, int *error) {
 			continue;
 		}
 		
-		enum {
-			parse_keyword,
-			parse_stdin,
-			parse_stdout,
-			parse_stdout_append,
-			parse_stderr,
-		} action;
-		
-		if (c == '>' && peekn(p, 1) == '>') {
-			action = parse_stdout_append; get_char(p); get_char(p);
-		} else if (c == '>') {
-			action = parse_stdout; get_char(p);
-		} else if (c == '<') {
-			action = parse_stdin; get_char(p);
-		} else if (c == '2' && peekn(p, 1) == '>') {
-			action = parse_stderr; get_char(p); get_char(p);
-		} else {
-			action = parse_keyword;
-		}
-		
-		ignore_whitespace(p);
-		
-		string_ref word = get_string(p);
-		char string[word.length + 1];
-		string[word.length] = 0;
-		memcpy(string, p->source + word.start, word.length);
-		
-		switch (action) {
-			case parse_keyword: cmd_append_argument(cur_cmd, string); break;
-			case parse_stdin:	cmd_set_in(cur_cmd, string); break;
-			case parse_stdout_append: cur_cmd->out_append = 1; /* no break */
-			case parse_stdout:	cmd_set_out(cur_cmd, string); break;
-			case parse_stderr:	cmd_set_err(cur_cmd, string); break;
+		if (!parse_redirection(cur_cmd, p)) {
+			parse_keyword(cur_cmd, p);
 		}
 	}
 	
 	return initial_cmd;
+}
+
+static int parse_redirection(cmd *cur_cmd, parser *p) {
+	enum {
+		parse_stdin,
+		parse_stdout,
+		parse_stdout_append,
+		parse_stderr,
+	} action;
+	
+	char c = peek(p);
+		
+	if (c == '>' && peekn(p, 1) == '>') {
+		action = parse_stdout_append; get_char(p); get_char(p);
+	} else if (c == '>') {
+		action = parse_stdout; get_char(p);
+	} else if (c == '<') {
+		action = parse_stdin; get_char(p);
+	} else if (c == '2' && peekn(p, 1) == '>') {
+		action = parse_stderr; get_char(p); get_char(p);
+	} else {
+		return 0;
+	}
+		
+	ignore_whitespace(p);
+		
+	string_ref word = get_string(p);
+	char string[word.length + 1];
+	string[word.length] = 0;
+	memcpy(string, p->source + word.start, word.length);
+		
+	switch (action) {
+		case parse_stdin:	cmd_set_in(cur_cmd, string); break;
+		case parse_stdout_append: cur_cmd->out_append = 1; /* no break */
+		case parse_stdout:	cmd_set_out(cur_cmd, string); break;
+		case parse_stderr:	cmd_set_err(cur_cmd, string); break;
+	}
+	
+	return 1;
+}
+
+static void parse_keyword(cmd *cur_cmd, parser *p) {
+	string_ref word = get_string(p);
+	char string[word.length + 1];
+	string[word.length] = 0;
+	memcpy(string, p->source + word.start, word.length);
+	
+	cmd_append_argument(cur_cmd, string);
 }
 
 static int is_whitespace(char c) {
