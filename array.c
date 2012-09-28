@@ -27,8 +27,8 @@ void array_push(array *a, void *data) {
 		dest = a->static_buffer + a->element_count * a->element_size;
 	} else {
 		if (space_req > a->buffer_size) {
-			printf("<alloc>\n");
-			a->dynamic_buffer = srealloc(a->dynamic_buffer, space_req * 2);
+			a->buffer_size = space_req * 4;
+			a->dynamic_buffer = srealloc(a->dynamic_buffer, a->buffer_size);
 		}
 		
 		dest = a->dynamic_buffer + a->element_count * a->element_size;
@@ -39,7 +39,7 @@ void array_push(array *a, void *data) {
 }
 
 void *array_pop(array *a) {
-	void *obj = array_object_at_index(a, a->element_count - 1);
+	void *obj = array_get(a, a->element_count - 1);
 	array_remove_object_at_index(a, a->element_count - 1);
 	return obj;
 }
@@ -48,7 +48,7 @@ unsigned int array_length(array *a) {
 	return a->element_count;
 }
 
-void *array_object_at_index(array *a, unsigned int index) {
+void *array_get(array *a, unsigned int index) {
 	if (a->dynamic_buffer) {
 		return a->dynamic_buffer + index * a->element_size;
 	} else {

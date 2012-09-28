@@ -1,5 +1,6 @@
 #include "shell.h"
 #include "util.h"
+#include "array.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/wait.h>
@@ -8,22 +9,19 @@
 #include <string.h>
 #include <errno.h>
 
-#define SHELL_MAX_PROCESSES 20
-
 struct shell_struct {
-	pid_t running_processes[SHELL_MAX_PROCESSES];
-	pid_t background_processes[SHELL_MAX_PROCESSES];
+	array running_processes;
+	array background_processes;
 };
 
 /* Runs a single command. All piped commands are run recursively.
  * If read_pipe is non-zero, it should be used as stdin. */
 static void shell_run_command_with_pipe(shell *s, cmd *c, int read_pipe);
 
-/* Appends a process id to the shells list of running processes. */
-static int shell_append_pid(shell *s, pid_t proc);
-
 shell *shell_alloc() {
 	shell *s = salloc(sizeof(shell));
+	array_init_with_element_size(&s->running_processes, sizeof(pid_t));
+	array_init_with_element_size(&s->background_processes, sizeof(pid_t));
 	return s;
 }
 
@@ -72,16 +70,14 @@ void shell_run_command(shell *s, cmd *c) {
 	
 	shell_run_command_with_pipe(s, c, 0);
 	
-	memset(s->running_processes, 0, sizeof(pid_t) * SHELL_MAX_PROCESSES);
+	array_deinit(&s->running_processes);
+	array_init_with_element_size(&s->running_processes, sizeof(pid_t));
 }
 
 int shell_handle_terminal_interrupt(shell *s) {
-	int i;
-	pid_t *process;
-	for (i = 0; *(process = &s->running_processes[i]) > 0
-		 && i < SHELL_MAX_PROCESSES; i++) {
-		kill(*process, SIGINT);
-		*process = 0;
+	unsigned int i;
+	for (i = 0; i < array_length(&s->running_processes); i++) {
+		kill(*(pid_t *)array_get(&s->running_processes, i), SIGINT);
 	}
 	
 	return (i > 0);
@@ -146,9 +142,8 @@ void shell_run_command_with_pipe(shell *s, cmd *c, int write_pipe) {
 		exit(1);
 	}
 	
-	if (!c->background && shell_append_pid(s, proc_pid) > 0) {
-		kill(proc_pid, SIGINT);
-		return;
+	if (!c->background) {
+		array_push(&s->running_processes, &proc_pid);
 	}
 	
 	if (write_pipe > 0) {
@@ -168,21 +163,4 @@ void shell_run_command_with_pipe(shell *s, cmd *c, int write_pipe) {
 		int exit_code;
 		waitpid(proc_pid, &exit_code, 0);
 	}
-}
-
-int shell_append_pid(shell *s, pid_t proc) {
-	int i = 0;
-	pid_t *process;
-	while (*(process = &(s->running_processes[i])) > 0
-		   && i < SHELL_MAX_PROCESSES) i++;
-	
-	if (i == SHELL_MAX_PROCESSES) {
-		fprintf(stderr, "Error: too many processes\n");
-		shell_handle_terminal_interrupt(s);
-		return 1;
-	} else {
-		*process = proc;
-	}
-	
-	return 0;
 }

@@ -7,7 +7,7 @@ typedef struct array_struct array;
 
 #define STATIC_BUFFER_SIZE 64
 
-struct array_base_struct {
+struct array_struct {
 	char static_buffer[STATIC_BUFFER_SIZE];
 	void *dynamic_buffer;
 	unsigned int buffer_size;
