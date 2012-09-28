@@ -8,8 +8,11 @@
 #include <string.h>
 #include <errno.h>
 
+#define SHELL_MAX_PROCESSES 20
+
 struct shell_struct {
 	pid_t running_processes[SHELL_MAX_PROCESSES];
+	pid_t background_processes[SHELL_MAX_PROCESSES];
 };
 
 /* Runs a single command. All piped commands are run recursively.

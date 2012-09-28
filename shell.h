@@ -4,8 +4,6 @@
 #include "cmd.h"
 #include <unistd.h>
 
-#define SHELL_MAX_PROCESSES 20
-
 typedef struct shell_struct shell;
 
 /* Allocates a new shell instance. Should be free'd with shell_free() */

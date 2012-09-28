@@ -1,7 +1,7 @@
 CC = clang
 CFLAGS = -Wall -Werror -Wextra
 LDFLAGS = 
-SOURCES = main.c util.c cmd.c input.c shell.c
+SOURCES = main.c util.c cmd.c input.c shell.c array.c
 OBJECTS = $(SOURCES:.c=.o)
 EXE = shell
 

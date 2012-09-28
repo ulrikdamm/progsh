@@ -7,6 +7,6 @@
 void *salloc(size_t bytes);
 
 /* Equivalent to realloc, but exit's on failure */
-void *realloc(void *mem, size_t bytes);
+void *srealloc(void *mem, size_t bytes);
 
 #endif

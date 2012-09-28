@@ -12,7 +12,7 @@ void *salloc(size_t bytes) {
 	return mem;
 }
 
-void *realloc(void *mem, size_t bytes) {
+void *srealloc(void *mem, size_t bytes) {
 	void *new_mem = realloc(mem, bytes);
 	
 	if (!new_mem) {

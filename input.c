@@ -66,17 +66,11 @@ cmd *parse_input(const char *input, input_parse_error *error) {
 	
 		if (c == EOF) {
 			if (cur_cmd->command == NULL) {
-				cmd *from_pipe = cur_cmd->pipe_from;
-				
-				if (from_pipe != NULL) {
+				if (cur_cmd->pipe_from != NULL) {
 					cur_cmd->pipe_from->pipe_to = NULL;
 				}
 				
 				cmd_free(cur_cmd);
-				
-				if (!from_pipe) {
-					*error = input_parse_error_empty;
-				}
 			}
 			
 			break;
