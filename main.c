@@ -10,11 +10,17 @@
 /* SIGINT signal handler */
 static void int_handler(int sig);
 
+/* SIGCHLD signal handler */
+static void child_handler(int sig);
+
 shell *s;
 static jmp_buf buf;
 
 int main(void) {
+	printf("Launching shell...\n");
+	
 	signal(SIGINT, int_handler);
+	signal(SIGCHLD, child_handler);
 	
 	s = shell_alloc();
 	
@@ -28,7 +34,13 @@ int main(void) {
             return 1;
         }
 		
-        cmd *c = parse_input(buffer);
+		int error;
+        cmd *c = parse_input(buffer, &error);
+		
+		if (error == 2) {
+			exit(0);
+		}
+		
 		while (c->pipe_to != NULL) {
 			c = c->pipe_to;
 		}
@@ -48,4 +60,11 @@ void int_handler(int sig) {
 		printf("\n");
 		longjmp(buf, 0);
 	}
+}
+
+static void child_handler(int sig) {
+	sig = 0;
+	
+	int exit_code;
+	while (waitpid(-1, &exit_code, WNOHANG) > 0);
 }

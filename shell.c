@@ -87,13 +87,14 @@ int shell_handle_terminal_interrupt(shell *s) {
 void shell_run_command_with_pipe(shell *s, cmd *c, int write_pipe) {
 	int fds[2];
 	int proc_pid;
+	int should_pipe = (c->pipe_from != NULL && c->pipe_from->should_pipe);
 	
-	if (c->pipe_from != NULL) {
+	if (should_pipe) {
 		pipe(fds);
 	}
 	
 	if (!(proc_pid = fork())) {
-		if (c->pipe_from != NULL) {
+		if (should_pipe) {
 			close(fds[1]);
 		}
 		
@@ -115,7 +116,7 @@ void shell_run_command_with_pipe(shell *s, cmd *c, int write_pipe) {
 		}
 		args[i] = NULL;
 		
-		if (c->pipe_from) {
+		if (should_pipe) {
 			close(fileno(stdin));
 			dup(fds[0]);
 		} else if (c->in) {
@@ -139,10 +140,10 @@ void shell_run_command_with_pipe(shell *s, cmd *c, int write_pipe) {
 		execvp(c->command->string, (char * const *)args);
 		
 		printf("%s: command not found\n", c->command->string);
-		free(args);
+		exit(1);
 	}
 	
-	if (shell_append_pid(s, proc_pid) > 0) {
+	if (!c->background && shell_append_pid(s, proc_pid) > 0) {
 		kill(proc_pid, SIGINT);
 		return;
 	}
@@ -151,13 +152,19 @@ void shell_run_command_with_pipe(shell *s, cmd *c, int write_pipe) {
 		close(write_pipe);
 	}
 	
-	if (c->pipe_from != NULL) {
+	if (should_pipe) {
 		close(fds[0]);
 		shell_run_command_with_pipe(s, c->pipe_from, fds[1]);
+	} else if (c->pipe_from != NULL) {
+		shell_run_command_with_pipe(s, c->pipe_from, 0);
 	}
 	
-	int exit_code;
-	waitpid(proc_pid, &exit_code, 0);
+	if (c->background) {
+		
+	} else {
+		int exit_code;
+		waitpid(proc_pid, &exit_code, 0);
+	}
 }
 
 int shell_append_pid(shell *s, pid_t proc) {

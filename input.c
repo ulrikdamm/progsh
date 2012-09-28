@@ -28,13 +28,15 @@ static char peekn(parser *p, int n);
 static char get_char(parser *p);
 static string_ref get_string(parser *p);
 
-cmd *parse_input(const char *input) {
+cmd *parse_input(const char *input, int *error) {
 	parser *p = &(parser){
 		.source = input,
 		.source_length = strlen(input),
 		.source_counter = 0,
 	};
 	
+	*error = 0;
+		
 	cmd *initial_cmd = cmd_alloc();
 	cmd *cur_cmd = initial_cmd;
 	
@@ -43,6 +45,19 @@ cmd *parse_input(const char *input) {
 		char c = peek(p);
 	
 		if (c == EOF) {
+			if (cur_cmd->command == NULL) {
+				cmd *from_pipe = cur_cmd->pipe_from;
+				if (from_pipe != NULL) {
+					cur_cmd->pipe_from->pipe_to = NULL;
+				}
+				
+				cmd_free(cur_cmd);
+				
+				if (!from_pipe) {
+					*error = 2;
+				}
+			}
+			
 			break;
 		}
 		
@@ -50,6 +65,18 @@ cmd *parse_input(const char *input) {
 			get_char(p);
 			cmd *new_cmd = cmd_alloc();
 			cur_cmd->pipe_to = new_cmd;
+			cur_cmd->should_pipe = 1;
+			new_cmd->pipe_from = cur_cmd;
+			cur_cmd = new_cmd;
+			continue;
+		}
+		
+		if (c == '&') {
+			get_char(p);
+			cmd *new_cmd = cmd_alloc();
+			cur_cmd->pipe_to = new_cmd;
+			cur_cmd->should_pipe = 0;
+			cur_cmd->background = 1;
 			new_cmd->pipe_from = cur_cmd;
 			cur_cmd = new_cmd;
 			continue;
@@ -138,7 +165,9 @@ static string_ref get_string(parser *p) {
 	}
 	
 	char c;
-	while (is_string? c = get_char(p), c != '"' && c != EOF: !is_whitespace(get_char(p)));
+	while (is_string?
+		c = get_char(p), c != '"' && c != EOF:
+		!is_whitespace(get_char(p)));
 	
 	str.length = p->source_counter - 1 - str.start;
 	

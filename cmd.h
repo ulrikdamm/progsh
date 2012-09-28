@@ -16,7 +16,9 @@ struct cmd_struct {
 	cmd *pipe_to;
 	cmd *pipe_from;
 	
+	int should_pipe;
 	int out_append;
+	int background;
 };
 
 struct cmd_arg_struct {
