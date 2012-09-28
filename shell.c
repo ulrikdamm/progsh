@@ -52,12 +52,18 @@ void shell_run_command(shell *s, cmd *c) {
 		int error = chdir(newdir);
 		
 		switch (error) {
-			case 0: break;
-			case EACCES: printf("%s: access denied.\n", newdir); break;
-			case ENOENT: printf("%s: no such file or directory.\n", newdir); break;
-			case ENOTDIR: printf("%s: not a directory.\n", newdir); break;
-			default: printf("%s: error %i\n", newdir, error); break;
+			case 0:
+				break;
+			case EACCES:
+				printf("%s: access denied.\n", newdir); break;
+			case ENOENT:
+				printf("%s: no such file or directory.\n", newdir); break;
+			case ENOTDIR:
+				printf("%s: not a directory.\n", newdir); break;
+			default:
+				printf("%s: error %i\n", newdir, error); break;
 		}
+		
 		return;
 	}
 	
@@ -69,7 +75,8 @@ void shell_run_command(shell *s, cmd *c) {
 int shell_handle_terminal_interrupt(shell *s) {
 	int i;
 	pid_t *process;
-	for (i = 0; *(process = &s->running_processes[i]) > 0 && i < SHELL_MAX_PROCESSES; i++) {
+	for (i = 0; *(process = &s->running_processes[i]) > 0
+		 && i < SHELL_MAX_PROCESSES; i++) {
 		kill(*process, SIGINT);
 		*process = 0;
 	}
@@ -156,7 +163,8 @@ void shell_run_command_with_pipe(shell *s, cmd *c, int write_pipe) {
 int shell_append_pid(shell *s, pid_t proc) {
 	int i = 0;
 	pid_t *process;
-	while (*(process = &(s->running_processes[i])) > 0 && i < SHELL_MAX_PROCESSES) i++;
+	while (*(process = &(s->running_processes[i])) > 0
+		   && i < SHELL_MAX_PROCESSES) i++;
 	
 	if (i == SHELL_MAX_PROCESSES) {
 		fprintf(stderr, "Error: too many processes\n");
