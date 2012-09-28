@@ -29,7 +29,11 @@ static char get_char(parser *p);
 static string_ref get_string(parser *p);
 
 cmd *parse_input(const char *input) {
-	parser *p = &(parser){ .source = input, .source_length = strlen(input), .source_counter = 0 };
+	parser *p = &(parser){
+		.source = input,
+		.source_length = strlen(input),
+		.source_counter = 0,
+	};
 	
 	cmd *initial_cmd = cmd_alloc();
 	cmd *cur_cmd = initial_cmd;
@@ -51,15 +55,25 @@ cmd *parse_input(const char *input) {
 			continue;
 		}
 		
-		enum { parse_keyword, parse_stdin, parse_stdout, parse_stdout_append, parse_stderr} action;
+		enum {
+			parse_keyword,
+			parse_stdin,
+			parse_stdout,
+			parse_stdout_append,
+			parse_stderr,
+		} action;
 		
-		if (c == '>'
-			&& peekn(p, 1) == '>')	{ action = parse_stdout_append; get_char(p); get_char(p); }
-		else if (c == '>')			{ action = parse_stdout; get_char(p); }
-		else if (c == '<')			{ action = parse_stdin; get_char(p); }
-		else if (c == '2'
-			&& peekn(p, 1) == '>')	{ action = parse_stderr; get_char(p); get_char(p); }
-		else						{ action = parse_keyword; }
+		if (c == '>' && peekn(p, 1) == '>') {
+			action = parse_stdout_append; get_char(p); get_char(p);
+		} else if (c == '>') {
+			action = parse_stdout; get_char(p);
+		} else if (c == '<') {
+			action = parse_stdin; get_char(p);
+		} else if (c == '2' && peekn(p, 1) == '>') {
+			action = parse_stderr; get_char(p); get_char(p);
+		} else {
+			action = parse_keyword;
+		}
 		
 		ignore_whitespace(p);
 		
@@ -95,7 +109,11 @@ static char peek(parser *p) {
 }
 
 static char peekn(parser *p, int n) {
-	return (p->source_counter + n >= p->source_length? EOF: p->source[p->source_counter + n]);
+	if (p->source_counter + n >= p->source_length) {
+		return EOF;
+	}
+	
+	return p->source[p->source_counter + n];
 }
 
 static char get_char(parser *p) {
