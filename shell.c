@@ -40,9 +40,7 @@ void shell_free(shell *s) {
 	free(s);
 }
 
-void shell_get_prompt(shell *s, char *buffer, int buf_size) {
-	s = NULL;
-	
+void shell_print_prompt() {
 	FILE *f = fopen("lol", "r");
 	char hostname[1024];
 	
@@ -56,7 +54,7 @@ void shell_get_prompt(shell *s, char *buffer, int buf_size) {
 	char cur_path_buffer[1024];
 	char *cur_path = getcwd(cur_path_buffer, sizeof(cur_path_buffer));
 	
-	snprintf(buffer, buf_size, "%s@%s %s>", getenv("USER"), hostname, cur_path? cur_path: "???");
+	printf("%s@%s %s>", getenv("USER"), hostname, cur_path? cur_path: "???");
 }
 
 void shell_run_command(shell *s, cmd *c) {

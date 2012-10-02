@@ -10,7 +10,7 @@ typedef struct shell_struct shell;
 shell *shell_alloc();
 
 /* Prints the prompt before user input */
-void shell_print_prompt(shell *s);
+void shell_print_prompt();
 
 /* Runs a command in a shell instance.
  * This function will wait for the process to finish */

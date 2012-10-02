@@ -26,7 +26,7 @@ int main(void) {
     while (1) {
 		setjmp(buf);
 		
-        shell_print_prompt(s);
+        shell_print_prompt();
 		char buffer[MAX_LINE_LENGTH];
         if (fgets(buffer, sizeof(buffer), stdin) < 0) {
             fprintf(stderr,"Error reading from input\n");
