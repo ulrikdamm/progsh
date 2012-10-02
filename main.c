@@ -4,6 +4,7 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <setjmp.h>
+#include <wait.h>
 
 #define MAX_LINE_LENGTH 2048
 

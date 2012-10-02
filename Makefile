@@ -1,5 +1,5 @@
-CC = clang
-CFLAGS = -Wall -Werror -Wextra
+CC = gcc
+CFLAGS = -Wall -Werror
 LDFLAGS = 
 SOURCES = main.c util.c cmd.c input.c shell.c array.c
 OBJECTS = $(SOURCES:.c=.o)

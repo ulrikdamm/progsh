@@ -14,14 +14,25 @@ struct shell_struct {
 	array background_processes;
 };
 
+typedef struct {
+	int out;
+	pid_t proc;
+} background_process;
+
 /* Runs a single command. All piped commands are run recursively.
  * If read_pipe is non-zero, it should be used as stdin. */
 static void shell_run_command_with_pipe(shell *s, cmd *c, int read_pipe);
 
+/* Brings a backgrounded process to the foreground.
+ * If bpid is 0 and there is one background process, this is brought forth.
+ * If bpid is 0 and there is multiple background processes, it shows a list */
+static void shell_foreground(shell *s, int bpid);
+
 shell *shell_alloc() {
 	shell *s = salloc(sizeof(shell));
 	array_init_with_element_size(&s->running_processes, sizeof(pid_t));
-	array_init_with_element_size(&s->background_processes, sizeof(pid_t));
+	size_t back_proc_size = sizeof(background_process);
+	array_init_with_element_size(&s->background_processes, back_proc_size);
 	return s;
 }
 
@@ -29,13 +40,23 @@ void shell_free(shell *s) {
 	free(s);
 }
 
-void shell_print_prompt(shell *s) {
+void shell_get_prompt(shell *s, char *buffer, int buf_size) {
 	s = NULL;
+	
+	FILE *f = fopen("lol", "r");
+	char hostname[1024];
+	
+	if (!f || fgets(hostname, sizeof(hostname), f) == NULL) {
+		const char *def = "computer";
+		memcpy(hostname, def, strlen(def) + 1);
+	}
+	
+	fclose(f);
 	
 	char cur_path_buffer[1024];
 	char *cur_path = getcwd(cur_path_buffer, sizeof(cur_path_buffer));
 	
-	printf("%s@computer %s>", getenv("USER"), cur_path? cur_path: "???");
+	snprintf(buffer, buf_size, "%s@%s %s>", getenv("USER"), hostname, cur_path? cur_path: "???");
 }
 
 void shell_run_command(shell *s, cmd *c) {
@@ -56,15 +77,37 @@ void shell_run_command(shell *s, cmd *c) {
 			case 0:
 				break;
 			case EACCES:
-				printf("%s: access denied.\n", newdir); break;
+				fprintf(stderr, "%s: access denied.\n", newdir); break;
 			case ENOENT:
-				printf("%s: no such file or directory.\n", newdir); break;
+				fprintf(stderr, "%s: no such file or directory.\n", newdir); break;
 			case ENOTDIR:
-				printf("%s: not a directory.\n", newdir); break;
+				fprintf(stderr, "%s: not a directory.\n", newdir); break;
 			default:
-				printf("%s: error %i\n", newdir, error); break;
+				fprintf(stderr, "%s: error %i\n", newdir, error); break;
 		}
 		
+		return;
+	}
+	
+	if (strcmp(c->command->string, "fg")) {
+		int bpid;
+		
+		if (c->command->next == NULL) {
+			bpid = -1;
+		} else {
+			bpid = atoi(c->command->next->string);
+		}
+		
+		int length = array_length(&s->background_processes);
+		if (bpid == -1 && length == 0) {
+			fprintf(stderr, "No background jobs\n");
+			return;
+		} else if (length <= bpid) {
+			fprintf(stderr, "%i: No such job\n", bpid);
+			return;
+		}
+		
+		shell_foreground(s, bpid);
 		return;
 	}
 	
@@ -83,12 +126,17 @@ int shell_handle_terminal_interrupt(shell *s) {
 	return (i > 0);
 }
 
+static void shell_foreground(shell *s, int bpid) {
+	s = NULL;
+	bpid = 0;
+}
+
 void shell_run_command_with_pipe(shell *s, cmd *c, int write_pipe) {
 	int fds[2];
 	int proc_pid;
 	int should_pipe = (c->pipe_from != NULL && c->pipe_from->should_pipe);
 	
-	if (should_pipe) {
+	if (should_pipe || c->background) {
 		pipe(fds);
 	}
 	
@@ -129,6 +177,9 @@ void shell_run_command_with_pipe(shell *s, cmd *c, int write_pipe) {
 		} else if (c->out) {
 			close(fileno(stdout));
 			dup(fileno(fopen(c->out, (c->out_append? "a": "w"))));
+		} else {
+			close(fileno(stdout));
+			dup(fds[1]);
 		}
 		
 		if (c->err) {
@@ -144,6 +195,12 @@ void shell_run_command_with_pipe(shell *s, cmd *c, int write_pipe) {
 	
 	if (!c->background) {
 		array_push(&s->running_processes, &proc_pid);
+	} else {
+		background_process *proc = &(background_process) {
+			.proc = proc_pid,
+			.out = fds[0],
+		};
+		array_push(&s->background_processes, proc);
 	}
 	
 	if (write_pipe > 0) {
@@ -157,9 +214,7 @@ void shell_run_command_with_pipe(shell *s, cmd *c, int write_pipe) {
 		shell_run_command_with_pipe(s, c->pipe_from, 0);
 	}
 	
-	if (c->background) {
-		
-	} else {
+	if (!c->background) {
 		int exit_code;
 		waitpid(proc_pid, &exit_code, 0);
 	}
