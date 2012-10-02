@@ -4,6 +4,7 @@ Ulrik Flænø Damm og Niklas Hansen
 
 ##Introduktion
 Det er blevet stillet til opgave at lave en Linux-shell, ligesom BASH. Den skal være skrevet i C, og skal opfylde en række krav, som stillet i rapporten. Denne rapport beskriver det program vi har lavet, hvilke features den har, samt test cases som viser at vores program opflyder alle de stillede krav.
+Den færdige kode er inkluderet med denne rapport, men kan også findes på GitHub på https://github.com/ulrikdamm/progsh.
 
 ##Oversigt over filerne
 ###main.c:
