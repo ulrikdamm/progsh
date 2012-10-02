@@ -23,11 +23,6 @@ typedef struct {
  * If read_pipe is non-zero, it should be used as stdin. */
 static void shell_run_command_with_pipe(shell *s, cmd *c, int read_pipe);
 
-/* Brings a backgrounded process to the foreground.
- * If bpid is 0 and there is one background process, this is brought forth.
- * If bpid is 0 and there is multiple background processes, it shows a list */
-static void shell_foreground(shell *s, int bpid);
-
 shell *shell_alloc() {
 	shell *s = salloc(sizeof(shell));
 	array_init_with_element_size(&s->running_processes, sizeof(pid_t));
@@ -41,15 +36,17 @@ void shell_free(shell *s) {
 }
 
 void shell_print_prompt() {
-	FILE *f = fopen("lol", "r");
+	FILE *f = fopen("/proc/sys/kernel/hostname", "r");
 	char hostname[1024];
 	
 	if (!f || fgets(hostname, sizeof(hostname), f) == NULL) {
 		const char *def = "computer";
 		memcpy(hostname, def, strlen(def) + 1);
+	} else {
+		hostname[strlen(hostname) - 1] = 0;
 	}
 	
-	fclose(f);
+	if (f) fclose(f);
 	
 	char cur_path_buffer[1024];
 	char *cur_path = getcwd(cur_path_buffer, sizeof(cur_path_buffer));
@@ -58,6 +55,12 @@ void shell_print_prompt() {
 }
 
 void shell_run_command(shell *s, cmd *c) {
+	if (c->command == NULL
+		|| c->command->string == NULL
+		|| strcmp(c->command->string, "") == 0) {
+			return;
+	}
+	
 	if (strcmp(c->command->string, "exit") == 0) {
 		exit(0);
 	}
@@ -77,35 +80,14 @@ void shell_run_command(shell *s, cmd *c) {
 			case EACCES:
 				fprintf(stderr, "%s: access denied.\n", newdir); break;
 			case ENOENT:
-				fprintf(stderr, "%s: no such file or directory.\n", newdir); break;
+				fprintf(stderr, "%s: no such file or directory.\n", newdir);
+				break;
 			case ENOTDIR:
 				fprintf(stderr, "%s: not a directory.\n", newdir); break;
 			default:
 				fprintf(stderr, "%s: error %i\n", newdir, error); break;
 		}
 		
-		return;
-	}
-	
-	if (strcmp(c->command->string, "fg")) {
-		int bpid;
-		
-		if (c->command->next == NULL) {
-			bpid = -1;
-		} else {
-			bpid = atoi(c->command->next->string);
-		}
-		
-		int length = array_length(&s->background_processes);
-		if (bpid == -1 && length == 0) {
-			fprintf(stderr, "No background jobs\n");
-			return;
-		} else if (length <= bpid) {
-			fprintf(stderr, "%i: No such job\n", bpid);
-			return;
-		}
-		
-		shell_foreground(s, bpid);
 		return;
 	}
 	
@@ -124,17 +106,12 @@ int shell_handle_terminal_interrupt(shell *s) {
 	return (i > 0);
 }
 
-static void shell_foreground(shell *s, int bpid) {
-	s = NULL;
-	bpid = 0;
-}
-
 void shell_run_command_with_pipe(shell *s, cmd *c, int write_pipe) {
 	int fds[2];
 	int proc_pid;
 	int should_pipe = (c->pipe_from != NULL && c->pipe_from->should_pipe);
 	
-	if (should_pipe || c->background) {
+	if (should_pipe) {
 		pipe(fds);
 	}
 	
@@ -175,9 +152,6 @@ void shell_run_command_with_pipe(shell *s, cmd *c, int write_pipe) {
 		} else if (c->out) {
 			close(fileno(stdout));
 			dup(fileno(fopen(c->out, (c->out_append? "a": "w"))));
-		} else {
-			close(fileno(stdout));
-			dup(fds[1]);
 		}
 		
 		if (c->err) {
