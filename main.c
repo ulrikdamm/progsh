@@ -28,12 +28,18 @@ int main(void) {
 	
 	s = shell_alloc();
 	
+	char *input = NULL;
+	cmd *cur_cmd = NULL;
+	
     while (1) {
 		setjmp(buf);
 		
+		if (input != NULL) free(input), input = NULL;
+		if (cur_cmd != NULL) cmd_free(cur_cmd), cur_cmd = NULL;
+		
 		char buffer[512];
 		shell_get_prompt(buffer, sizeof(buffer));
-		char *input = readline(buffer);
+		input = readline(buffer);
 		
 		if (!input) {
 			printf("Input error\n");
@@ -41,17 +47,18 @@ int main(void) {
 		}
 		
 		input_parse_error error;
-		cmd *c = parse_input(input, &error);
+		cur_cmd = parse_input(input, &error);
+		free(input), input = NULL;
 		
 		if (error == 2) {
 			exit(0);
 		}
 		
-		while (c->pipe_to != NULL) {
-			c = c->pipe_to;
+		while (cur_cmd->pipe_to != NULL) {
+			cur_cmd = cur_cmd->pipe_to;
 		}
-		shell_run_command(s, c);
-		cmd_free(c);
+		shell_run_command(s, cur_cmd);
+		cmd_free(cur_cmd), cur_cmd = NULL;
     }
 	
 	shell_free(s);
