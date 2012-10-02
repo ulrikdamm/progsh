@@ -4,6 +4,8 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <setjmp.h>
+#include <stdlib.h>
+#include <readline/readline.h>
 
 #ifdef __linux
 #include <wait.h>
@@ -29,15 +31,17 @@ int main(void) {
     while (1) {
 		setjmp(buf);
 		
-        shell_print_prompt();
-		char buffer[MAX_LINE_LENGTH];
-        if (fgets(buffer, sizeof(buffer), stdin) < 0) {
-            fprintf(stderr,"Error reading from input\n");
-            return 1;
-        }
+		char buffer[512];
+		shell_get_prompt(buffer, sizeof(buffer));
+		char *input = readline(buffer);
+		
+		if (!input) {
+			printf("Input error\n");
+			continue;
+		}
 		
 		input_parse_error error;
-		cmd *c = parse_input(buffer, &error);
+		cmd *c = parse_input(input, &error);
 		
 		if (error == 2) {
 			exit(0);

@@ -6,6 +6,7 @@
 #include <stdio.h>
 
 #define MAX_STRING_LENGTH 1024
+#define END_OF_INPUT 0
 
 typedef struct parser_struct parser;
 typedef struct string_ref_struct string_ref;
@@ -63,8 +64,8 @@ cmd *parse_input(const char *input, input_parse_error *error) {
 	while (1) {
 		ignore_whitespace(p);
 		char c = peek(p);
-	
-		if (c == EOF) {
+		
+		if (c == END_OF_INPUT) {
 			if (cur_cmd->command == NULL) {
 				if (cur_cmd->pipe_from != NULL) {
 					cur_cmd->pipe_from->pipe_to = NULL;
@@ -181,7 +182,7 @@ static char peek(parser *p) {
 
 static char peekn(parser *p, int n) {
 	if (p->source_counter + n >= p->source_length) {
-		return EOF;
+		return END_OF_INPUT;
 	}
 	
 	return p->source[p->source_counter + n];
@@ -190,7 +191,7 @@ static char peekn(parser *p, int n) {
 static char get_char(parser *p) {
 	char c = peek(p);
 	
-	if (c != EOF) p->source_counter++;
+	if (c != END_OF_INPUT) p->source_counter++;
 	
 	return c;
 }
@@ -198,22 +199,21 @@ static char get_char(parser *p) {
 static string_ref get_string(parser *p) {
 	ignore_whitespace(p);
 	
-	string_ref str = {};
+	string_ref str = { .start = 0, .length = 0 };
 	
-	int is_string = (get_char(p) == '"');
+	int is_string = (peek(p) == '"');
+	if (is_string) get_char(p);
 	
-	if (is_string) {
-		str.start = p->source_counter;
-	} else {
-		str.start = p->source_counter - 1;
+	str.start = p->source_counter;
+	
+	int reads = 0;
+	char c;
+	while (c = get_char(p), c != END_OF_INPUT && (is_string?
+		c != '"': !is_whitespace(c))) {
+		reads++;
 	}
 	
-	char c;
-	while (is_string?
-		c = get_char(p), c != '"' && c != EOF:
-		!is_whitespace(get_char(p)));
-	
-	str.length = p->source_counter - 1 - str.start;
+	str.length = reads;
 	
 	return str;
 }

@@ -35,7 +35,7 @@ void shell_free(shell *s) {
 	free(s);
 }
 
-void shell_print_prompt() {
+void shell_get_prompt(char *buffer, size_t max_size) {
 	FILE *f = fopen("/proc/sys/kernel/hostname", "r");
 	char hostname[1024];
 	
@@ -51,7 +51,7 @@ void shell_print_prompt() {
 	char cur_path_buffer[1024];
 	char *cur_path = getcwd(cur_path_buffer, sizeof(cur_path_buffer));
 	
-	printf("%s@%s %s>", getenv("USER"), hostname, cur_path? cur_path: "???");
+	snprintf(buffer, max_size, "%s@%s %s>", getenv("USER"), hostname, cur_path? cur_path: "???");
 }
 
 void shell_run_command(shell *s, cmd *c) {

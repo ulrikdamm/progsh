@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -Werror
-LDFLAGS = 
+LDFLAGS = -lreadline
 SOURCES = main.c util.c cmd.c input.c shell.c array.c
 OBJECTS = $(SOURCES:.c=.o)
 EXE = shell
@@ -8,7 +8,7 @@ EXE = shell
 all: $(SOURCES) $(EXE)
 
 $(EXE): $(OBJECTS)
-	$(CC) $(LDFLAGS) -o $@ $(OBJECTS)
+	$(CC) -o $@ $(OBJECTS) $(LDFLAGS)
 
 .c:
 	$(CC) $(CFLAGS) $< -o $@
