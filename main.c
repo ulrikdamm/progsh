@@ -67,8 +67,6 @@ int main(void) {
 }
 
 void int_handler(int sig) {
-	sig = 0;
-	
 	if (!shell_handle_terminal_interrupt(s)) {
 		printf("\n");
 		longjmp(buf, 0);
@@ -76,8 +74,6 @@ void int_handler(int sig) {
 }
 
 static void child_handler(int sig) {
-	sig = 0;
-	
 	int exit_code;
 	while (waitpid(-1, &exit_code, WNOHANG) > 0);
 }

@@ -11,7 +11,6 @@
 
 struct shell_struct {
 	array running_processes;
-	array background_processes;
 };
 
 typedef struct {
@@ -26,8 +25,6 @@ static void shell_run_command_with_pipe(shell *s, cmd *c, int read_pipe);
 shell *shell_alloc() {
 	shell *s = salloc(sizeof(shell));
 	array_init_with_element_size(&s->running_processes, sizeof(pid_t));
-	size_t back_proc_size = sizeof(background_process);
-	array_init_with_element_size(&s->background_processes, back_proc_size);
 	return s;
 }
 
@@ -167,12 +164,6 @@ void shell_run_command_with_pipe(shell *s, cmd *c, int write_pipe) {
 	
 	if (!c->background) {
 		array_push(&s->running_processes, &proc_pid);
-	} else {
-		background_process *proc = &(background_process) {
-			.proc = proc_pid,
-			.out = fds[0],
-		};
-		array_push(&s->background_processes, proc);
 	}
 	
 	if (write_pipe > 0) {
